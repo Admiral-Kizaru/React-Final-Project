@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
 import './App.css';
 
@@ -10,30 +10,31 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('Marvel');
 
-  const fetchMovies = async (query) => {
-  if (!query) return;
-  setLoading(true);
+  // useCallback prevents the "missing dependency" warning in useEffect
+  const fetchMovies = useCallback(async (query) => {
+    if (!query) return;
+    setLoading(true);
 
-  try {
-    const res = await fetch(`https://www.omdbapi.com/?s=${query}&apikey=${API_KEY}`);
-    const data = await res.json();
+    try {
+      const res = await fetch(`https://www.omdbapi.com/?s=${query}&apikey=${API_KEY}`);
+      const data = await res.json();
 
-    console.log("API RESPONSE:", data); // 🔥 IMPORTANT
-
-    if (data.Response === "True") {
-      setMovies(data.Search);
-    } else {
-      console.error("API Error:", data.Error);
-      setMovies([]);
+      if (data.Response === "True") {
+        setMovies(data.Search);
+      } else {
+        setMovies([]);
+      }
+    } catch (err) {
+      console.error("Search error:", err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Search error:", err);
-  } finally {
-    setLoading(false);
-  }
-};
+  }, []);
 
-  useEffect(() => { fetchMovies(searchTerm); }, []);
+  // Runs once on initial load
+  useEffect(() => { 
+    fetchMovies('Marvel'); 
+  }, [fetchMovies]);
 
   return (
     <div className="container">
@@ -57,8 +58,14 @@ const Home = () => {
         ) : movies.length > 0 ? (
           movies.map(movie => (
             <Link to={`/movie/${movie.imdbID}`} key={movie.imdbID} className="card">
-              <img src={movie.Poster !== 'N/A' ? movie.Poster : 'https://placeholder.com'} alt={movie.Title} />
-              <div className="card-content"><h3>{movie.Title}</h3><p>{movie.Year}</p></div>
+              <img 
+                src={movie.Poster !== 'N/A' ? movie.Poster : 'https://placeholder.com'} 
+                alt={movie.Title} 
+              />
+              <div className="card-content">
+                <h3>{movie.Title}</h3>
+                <p>{movie.Year}</p>
+              </div>
             </Link>
           ))
         ) : (
@@ -82,8 +89,7 @@ const MovieDetails = () => {
       setLoading(true);
       setApiError("");
       try {
-        // FIXED: Corrected the URL structure to use https://www. and ?i=
-        const response = await fetch(`https://www.omdbapi.com/?i=${id}&plot=full&apikey=${API_KEY}`)
+        const response = await fetch(`https://www.omdbapi.com/?i=${id}&plot=full&apikey=${API_KEY}`);
         const data = await response.json();
         
         if (data.Response === "True") {
@@ -152,7 +158,11 @@ const MovieDetails = () => {
 const App = () => (
   <Router>
     <div className="app-wrapper">
-      <nav className="navbar"><div className="nav-container"><Link to="/" className="logo">MOVIEHUB</Link></div></nav>
+      <nav className="navbar">
+        <div className="nav-container">
+          <Link to="/" className="logo">MOVIEHUB</Link>
+        </div>
+      </nav>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/movie/:id" element={<MovieDetails />} />
